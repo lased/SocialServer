@@ -11,6 +11,9 @@ const http = require('../http');
 
 const data = require('./controllers/data');
 const user = require('./controllers/user');
+const chat = require('./controllers/chat');
+
+router.post('/api/user/chat/message', upload.array('uploadedFiles', 5), access, chat.writeMessage);
 
 router.get('/api/user/files', access, user.getFiles);
 
