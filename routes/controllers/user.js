@@ -10,6 +10,8 @@ const User = require('../../models/user');
 const http = require('../../http');
 const config = require('../../config');
 
+const mongoose = require('mongoose');
+
 let settings = require('./settings.json').settings;
 
 module.exports.getFiles = function (req, res, next) {
@@ -60,7 +62,7 @@ module.exports.cancelAddFriend = function (req, res, next) {
     let idUser = req.decoded_token._id;
     let idNewUser = req.query.id;
     let data = {
-        $pop: {
+        $pull: {
             'friends': {
                 _id: idUser,
             }
@@ -76,7 +78,7 @@ module.exports.cancelAddFriend = function (req, res, next) {
             });
         },
         function (callback) {
-            data.$pop['friends']._id = idNewUser;
+            data.$pull['friends']._id = idNewUser;
 
             User.findByIdAndUpdate(idUser, data, (err, user) => {
                 if (err) return callback(err);
@@ -161,22 +163,22 @@ module.exports.deletePhoto = function (req, res, next) {
     let data = req.decoded_token;
     let image = JSON.parse(req.query.image);
     let pathPhoto = path.join(__dirname, "../.." + image.name);
-    let io = req.app.get('io');    
+    let io = req.app.get('io');   
     
     User.findById(data._id, function (err, user) {
         if (err) return res.json(http(500));
 
         fs.unlink(pathPhoto, function (err) {
-            if (err) return res.json(http(500));
+            if (err) return res.json(http(500));            
 
             User.findByIdAndUpdate(data._id, {
-                $pop: {
-                    "images": {
+                $pull: {
+                    'images': {
                         _id: image._id
                     }
                 }
             }, (err, user) => {
-                if (err) return res.json(http(500));
+                if (err) return res.json(http(500));                
             });
         })
 

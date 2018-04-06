@@ -10,11 +10,13 @@ const config = require('../../config');
 
 
 module.exports.writeMessage = function (req, res, next) {
-    let idUser = req.decoded_token._id;
+    let idUserFrom = req.decoded_token._id;
     let files = req.files;
-    let data = req.body;
+    let data = req.body;    
+    let idUserTo = data.id;
+    
 
-    console.log(data, files);
+    console.log(data);
     //Обработать данные
     
 }
