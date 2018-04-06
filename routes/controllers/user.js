@@ -16,14 +16,13 @@ module.exports.getFiles = function (req, res, next) {
     let t = req.query.type;
     let data = req.decoded_token;
 
-    let filesPath = path.join(__dirname, "../../data/users/" + data.id + "/" + t + "/");
-    let filePath = config.get('urlApi') + "/data/users/" + data.id + "/" + t + "/";
+    let filePath = config.get('urlApi');
 
-    fs.readdir(filesPath, function (err, files) {
+    User.findById(data._id, (err, user) => {
         if (err) return res.json(http(500));
 
-        res.json(http(200, { path: filePath, files }));
-    })
+        res.json(http(200, { path: filePath, files: user[t] }));
+    });
 }
 
 module.exports.confirmAddFriend = function (req, res, next) {
@@ -160,19 +159,28 @@ module.exports.get = function (req, res, next) {
 
 module.exports.deletePhoto = function (req, res, next) {
     let data = req.decoded_token;
-    let image = req.query.image;
-    let avatar = "/data/users/" + data.id + '/images/' + image;
-    let pathPhoto = path.join(__dirname, "../.." + avatar);
-    let io = req.app.get('io');
-
+    let image = JSON.parse(req.query.image);
+    let pathPhoto = path.join(__dirname, "../.." + image.name);
+    let io = req.app.get('io');    
+    
     User.findById(data._id, function (err, user) {
         if (err) return res.json(http(500));
 
         fs.unlink(pathPhoto, function (err) {
             if (err) return res.json(http(500));
+
+            User.findByIdAndUpdate(data._id, {
+                $pop: {
+                    "images": {
+                        _id: image._id
+                    }
+                }
+            }, (err, user) => {
+                if (err) return res.json(http(500));
+            });
         })
 
-        if (avatar == user.avatar) {
+        if (image.name == user.avatar) {
             let newAvatar = '/data/images/default-avatar.jpg';
 
             User.findByIdAndUpdate(data._id, { avatar: newAvatar }, function (err, user) {
@@ -190,7 +198,7 @@ module.exports.deletePhoto = function (req, res, next) {
 module.exports.photoAvatar = function (req, res, next) {
     let data = req.decoded_token;
     let image = req.body.image;
-    let avatar = '/data/users/' + data.id + '/images/' + image;
+    let avatar = image.name;
     let io = req.app.get('io');
 
     User.findByIdAndUpdate(data._id, { avatar }, function (err, user) {
@@ -212,15 +220,22 @@ module.exports.addPhotos = function (req, res, next) {
         fs.exists(targetPath, function (bool) {
             if (bool) {
                 fs.unlink(tempPath, function (err) {
-                    if (err) {
-                        return res.json(http(400));
-                    }
+                    if (err) return res.json(http(400));
                 })
             } else {
                 fs.rename(tempPath, targetPath, function (err) {
-                    if (err) {
-                        return res.json(http(400));
-                    }
+                    if (err) return res.json(http(400));
+
+                    User.findByIdAndUpdate(data._id, {
+                        $push: {
+                            "images": {
+                                name: "/data/users/" + + data.id + "/images/" + images[i].originalname,
+                                date: Date.now()
+                            }
+                        }
+                    }, (err, user) => {
+                        if (err) return res.json(http(500));
+                    });
                 });
             }
         })
@@ -230,14 +245,13 @@ module.exports.addPhotos = function (req, res, next) {
 
 module.exports.getPhotos = function (req, res, next) {
     let data = req.decoded_token;
-    let imagesPath = path.join(__dirname, "../../data/users/" + data.id + "/images/");
-    let photoPath = config.get('urlApi') + "/data/users/" + data.id + "/images/";
+    let photoPath = config.get('urlApi');
 
-    fs.readdir(imagesPath, function (err, images) {
+    User.findById(data._id, (err, user) => {
         if (err) return res.json(http(500));
 
-        res.json(http(200, { path: photoPath, photos: images }));
-    })
+        res.json(http(200, { path: photoPath, photos: user.images }));
+    });
 }
 
 module.exports.setAvatar = function (req, res, next) {
@@ -261,18 +275,15 @@ module.exports.setAvatar = function (req, res, next) {
             })
         } else {
             fs.rename(tempPath, targetPath, function (err) {
-                if (err) {
+                if (err)
                     res.json(http(400));
-                } else {
-                    User.findByIdAndUpdate(data._id, { avatar: newAvatar }, function (err, user) {
+                else
+                    User.findByIdAndUpdate(data._id, { avatar: newAvatar, $push: { "images": { name: newAvatar, date: Date.now() } } }, function (err, user) {
                         if (err) return res.json(http(500));
-
-                        console.log('user ' + data.id);
 
                         io.in('user ' + data.id).emit('setAvatar', avatar);
                         res.json(http(200));
                     })
-                }
             });
         }
     })
@@ -525,7 +536,7 @@ module.exports.registration = function (req, res, next) {
         userParams.dateCreated = userParams.lastAccess = Date.now();
 
         userParams.chats = userParams.groups = userParams.notifications =
-            userParams.wall = userParams.friends = [];
+            userParams.wall = userParams.friends = userParams.docs = userParams.images = [];
 
         userParams.activated = false;
 

@@ -33,6 +33,14 @@ const schema = new Schema({
     state: Boolean,
     activated: Boolean,
 
+    docs: [{
+        name: String,
+        date: Date
+    }],
+    images: [{
+        name: String,
+        date: Date
+    }],
     friends: [
         {
             _id: {
@@ -50,7 +58,7 @@ const schema = new Schema({
             },
             status: {
                 type: Boolean
-            }, 
+            },
             page: {
                 type: String
             }
