@@ -3,31 +3,35 @@ const Schema = mongoose.Schema;
 
 const schema = new Schema({
     messages: [{
-        _id: {
+        from: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'users'
         },
         date: Date,
         message: {
-            to: {
+            reply: mongoose.Schema.Types.ObjectId,
+            text: String
+        },
+        files: [
+            {
+                date: Date,
+                file: String
+            }
+        ]
+    }],
+    users: [
+        {
+            _id: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'users'
             },
-            text: String
-        },
-        files: [{
-            path: String
-        }]
-    }],
-    users: [{
-        _id: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'users'
-        },
-        main: Boolean
-    }]
+            main: Boolean,
+            online: Boolean,
+            unread: Number
+        }
+    ]
 }, {
-    versionKey: false
-});
+        versionKey: false
+    });
 
 module.exports = mongoose.model('chats', schema);

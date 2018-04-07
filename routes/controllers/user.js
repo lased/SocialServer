@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const async = require('async');
+const uuid = require("uuid");
 
 const fs = require('fs');
 const path = require('path');
@@ -9,8 +10,6 @@ const path = require('path');
 const User = require('../../models/user');
 const http = require('../../http');
 const config = require('../../config');
-
-const mongoose = require('mongoose');
 
 let settings = require('./settings.json').settings;
 
@@ -217,8 +216,10 @@ module.exports.addPhotos = function (req, res, next) {
 
     for (let i = 0; i < images.length; i++) {
         let tempPath = images[i].path;
-        let targetPath = path.join(__dirname, "../../data/users/" + data.id + "/images/") + images[i].originalname;
-
+        let type = images[i].originalname.split('.');
+        let UUID = uuid();
+        let targetPath = path.join(__dirname, "../../data/users/" + data.id + "/images/") + UUID + '.' + type[type.length - 1];
+        
         fs.exists(targetPath, function (bool) {
             if (bool) {
                 fs.unlink(tempPath, function (err) {
@@ -231,7 +232,7 @@ module.exports.addPhotos = function (req, res, next) {
                     User.findByIdAndUpdate(data._id, {
                         $push: {
                             "images": {
-                                name: "/data/users/" + + data.id + "/images/" + images[i].originalname,
+                                name: "/data/users/" + + data.id + "/images/" + UUID + '.' + type[type.length - 1],
                                 date: Date.now()
                             }
                         }
@@ -260,9 +261,12 @@ module.exports.setAvatar = function (req, res, next) {
     let data = req.decoded_token;
     let image = req.file;
     let tempPath = image.path;
-    let targetPath = path.join(__dirname, "../../data/users/" + data.id + "/images/") + image.originalname;
-    let avatar = config.get('urlApi') + "/data/users/" + data.id + "/images/" + image.originalname
-    let newAvatar = "/data/users/" + data.id + "/images/" + image.originalname
+    let UUID = uuid();
+    let type = image.originalname.split('.');
+    let name = UUID + '.' + type[type.length - 1];
+    let targetPath = path.join(__dirname, "../../data/users/" + data.id + "/images/") + name;
+    let avatar = config.get('urlApi') + "/data/users/" + data.id + "/images/" + name;
+    let newAvatar = "/data/users/" + data.id + "/images/" + name;
 
     fs.exists(targetPath, function (bool) {
         let io = req.app.get('io');
