@@ -431,7 +431,8 @@ module.exports.auth = function (req, res, next) {
                             surname: user.surname,
                             url: user.url,
                             state: user.state,
-                            friends: user.friends
+                            friends: user.friends,
+                            chats: user.chats
                         }
                     })
                 }
@@ -598,7 +599,8 @@ function selectedField(user) {
         name: user.name,
         url: user.url,
         state: user.state,
-        friends: user.friends
+        friends: user.friends,
+        chats: user.chats
     }
 }
 

@@ -21,6 +21,8 @@ const schema = new Schema({
     }],
     name: String,
     avatar: String,
+    platform: Boolean,
+    state: Boolean,
     users: [
         {
             _id: {

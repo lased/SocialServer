@@ -11,6 +11,21 @@ const config = require('../../config');
 
 const uuid = require("uuid");
 
+module.exports.getMessages = function (req, res, next) {
+    let id = req.decoded_token._id;
+    let chat = req.query.chat;
+
+    Chat.findById(chat).populate('messages.from users._id', 'name surname avatar url').exec((err, chat) => {
+        if (err) return res.json(http(500));
+        
+        if (chat.users.length == 2) {
+            chat = addDataChat(chat, id);
+        }
+        res.json(http(200, chat));
+    });
+    
+}
+
 module.exports.getChats = function (req, res, next) {
     let id = req.decoded_token._id;
 
@@ -203,13 +218,15 @@ function uploadFiles(chatId, files) {
 }
 
 function addDataChat(chat, userId) {
-    let index = chat.users.findIndex(el => {
+    let i = chat.users.findIndex(el => {
         return el['_id']['_id'] == userId;
     })
-
-    chat.users.splice(index, 1);
-    chat.avatar = chat.users[0]._id.avatar;
-    chat.name = chat.users[0]._id.surname + ' ' + chat.users[0]._id.name;
+    
+    i = +!i;    
+    chat.avatar = chat.users[i]._id.avatar;
+    chat.name = chat.users[i]._id.surname + ' ' + chat.users[i]._id.name;
+    chat.state = chat.users[i]._id.state;
+    chat.platform = chat.users[i]._id.platform; 
 
     return chat;
 }

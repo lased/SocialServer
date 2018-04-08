@@ -13,6 +13,8 @@ const data = require('./controllers/data');
 const user = require('./controllers/user');
 const chat = require('./controllers/chat');
 
+router.get('/api/user/chat', access, chat.getMessages);
+
 router.get('/api/user/chats', access, chat.getChats);
 router.post('/api/user/chat/message', upload.array('uploadedFiles', 5), access, chat.writeMessage);
 
