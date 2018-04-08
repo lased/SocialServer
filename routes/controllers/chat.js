@@ -1,4 +1,5 @@
 const async = require('async');
+const mongoose = require('mongoose');
 
 const fs = require('fs');
 const path = require('path');
@@ -9,6 +10,41 @@ const http = require('../../http');
 const config = require('../../config');
 
 const uuid = require("uuid");
+
+module.exports.getChats = function (req, res, next) {
+    let id = req.decoded_token._id;
+
+    User.findById(id)
+        .select('-_id chats')
+        .populate({
+            path: 'chats',
+            select: {
+                messages: {
+                    $slice: -1
+                }
+            },
+            populate: {
+                path: 'users._id',
+                select: 'name surname avatar state platform url'
+            }
+        })
+        .exec((err, user) => {
+            if (err) return res.json(http(500));
+
+            let i = 0;
+
+            while (i < user.chats.length) {
+                let chat = user.chats[i];
+
+                if (chat.users.length == 2) {
+                    chat = addDataChat(chat, id);
+                }
+
+                i++;
+            }
+            res.json(http(200, { chats: user.chats }));
+        })
+}
 
 module.exports.writeMessage = function (req, res, next) {
     let from = req.decoded_token._id;
@@ -64,63 +100,68 @@ module.exports.writeMessage = function (req, res, next) {
                     res.json(http(200));
                 })
             } else {
-                let newChat = new Chat({});
+                let _id = new mongoose.Types.ObjectId;
+                let dir = path.join(__dirname, "../../data/chats/" + _id);
+
+                if (!fs.existsSync(dir)) {
+                    fs.mkdirSync(dir);
+                    fs.mkdirSync(dir + '/files');
+                }
+
+                let doc = {
+                    _id,
+                    messages: [
+                        {
+                            from,
+                            date: Date.now(),
+                            message: {
+                                text: data.message
+                            },
+                            files: uploadFiles(_id, { downloaded, upload: files })
+                        }
+                    ],
+                    users: [
+                        {
+                            _id: from,
+                            main: true,
+                            online: false,
+                            unread: 0
+                        },
+                        {
+                            _id: to,
+                            main: false,
+                            online: false,
+                            unread: 0
+                        }
+                    ]
+                }
+                let newChat = new Chat(doc);
 
                 newChat.save((err, chat) => {
-                    let dir = path.join(__dirname, "../../data/chats/" + chat._id);
                     let query = {
                         $push: {
                             'chats': chat._id
                         }
                     }
-                    let allFiles;
-                    let doc = {
-                        messages: [
-                            {
-                                from,
-                                date: Date.now(),
-                                message: {
-                                    text: data.message
-                                },
-                                files: null
-                            }
-                        ],
-                        users: [
-                            {
-                                _id: from,
-                                main: true,
-                                online: false,
-                                unread: 0
-                            },
-                            {
-                                _id: to,
-                                main: false,
-                                online: false,
-                                unread: 0
-                            }
-                        ]
-                    }
 
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir);
-                        fs.mkdirSync(dir + '/files');
-                    }
-
-                    allFiles = uploadFiles(chat._id, { downloaded, upload: files });
-                    doc.messages[0].files = allFiles;
-
-                    Chat.findOneAndUpdate(chat._id, doc, (err, chat) => {
-                        if (err) return res.json(http(500));                        
-                    })
-
-                    User.findByIdAndUpdate(from, query, (err, user) => {
+                    async.waterfall([
+                        (callback) => {
+                            User.findByIdAndUpdate(from, query, (err, user) => {
+                                if (err) return callback(err);
+                                callback(null)
+                            });
+                        },
+                        (callback) => {
+                            User.findByIdAndUpdate(to, query, (err, user) => {
+                                if (err) return callback(err);
+                                callback(null)
+                            })
+                        }
+                    ], (err, result) => {
                         if (err) return res.json(http(500));
+
+                        res.json(http(200));
                     });
-                    User.findByIdAndUpdate(to, query, (err, user) => {
-                        if (err) return res.json(http(500));
-                    })
-
-                    res.json(http(200));
                 });
             }
         });
@@ -159,6 +200,18 @@ function uploadFiles(chatId, files) {
     }
 
     return allFiles;
+}
+
+function addDataChat(chat, userId) {
+    let index = chat.users.findIndex(el => {
+        return el['_id']['_id'] == userId;
+    })
+
+    chat.users.splice(index, 1);
+    chat.avatar = chat.users[0]._id.avatar;
+    chat.name = chat.users[0]._id.surname + ' ' + chat.users[0]._id.name;
+
+    return chat;
 }
 
 function indexOfArray(arrObj, field, val) {

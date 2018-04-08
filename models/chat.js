@@ -19,6 +19,8 @@ const schema = new Schema({
             }
         ]
     }],
+    name: String,
+    avatar: String,
     users: [
         {
             _id: {
