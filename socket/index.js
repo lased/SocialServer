@@ -16,39 +16,58 @@ module.exports = function (h) {
 
     io.on('connection', (socket) => {
         let data = socket.decoded_token;
+        let roomsChats = [];
+
         data.platform = socket.platform = socket.handshake.query.mobile == 'true' ? true : false;
 
         log.info('Socket connect');
 
         socket.join('user ' + data.id, () => online(data));
 
-        socket.on('disconnect', () => offline(data));
+        socket.on('join chat', (chat) => {
+            joinChat(socket, data, chat);
+            roomsChats.push(chat);;
+        });
+        socket.on('leave chat', (chat) => {
+            leaveChat(socket, data, chat);
+            roomsChats.splice(roomsChats.indexOf(chat), 1);
+        });
+
+        socket.on('disconnect', () => {
+            offline(data);
+            //При отключении закрыть все чаты в БД
+            console.log(roomsChats);
+        });
     });
 
     return io;
 }
 
-// async.waterfall([
-//     function (callback) {
-//         User.findOne({ url }, function(err, user){
-//             if(err) return callback(err);
+function joinChat(socket, user, chat) {
+    socket.join('chat ' + chat, () => {
+        console.log('join to chat');
 
-//             return callback(null, user);
-//         });
-//     },
-//     function (user, callback) {
-//         res.json(user);
-//         callback(null);
-//     }
-// ], function (err, result) {
-//     if (err) return res.json(http(500));        
-// });
+    })
+}
 
+function leaveChat(socket, user, chat) {
+    socket.leave('chat ' + chat, () => {
+        console.log('leave to chat');
+
+    })
+}
 
 function online(data) {
-    User.findByIdAndUpdate(data._id, { platform: data.platform, state: true }).exec();
+    User.findByIdAndUpdate(data._id, {
+        platform: data.platform,
+        state: true
+    }).exec();
 }
+
 function offline(data) {
-    User.findByIdAndUpdate(data._id, { lastAccess: Date.now(), state: false }).exec();
+    User.findByIdAndUpdate(data._id, {
+        lastAccess: Date.now(),
+        state: false
+    }).exec();
     log.info('Socket disconnect');
 }
