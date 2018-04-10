@@ -1,6 +1,7 @@
 const socketioJwt = require('socketio-jwt');
 
 const User = require('../models/user');
+const Chat = require('../models/chat');
 
 const log = require('../lib/log')(module);
 const config = require('../config');
@@ -35,8 +36,19 @@ module.exports = function (h) {
 
         socket.on('disconnect', () => {
             offline(data);
-            //При отключении закрыть все чаты в БД
-            console.log(roomsChats);
+
+            let query = {
+                $set: {
+                    "users.$.online": false,
+                    "users.$.unread": 0
+                }
+            }
+    
+            while(roomsChats.length > 0){
+                Chat.updateOne({ _id: roomsChats[0], "users._id": data._id }, query).exec();
+
+                roomsChats.shift();
+            }
         });
     });
 
@@ -45,15 +57,26 @@ module.exports = function (h) {
 
 function joinChat(socket, user, chat) {
     socket.join('chat ' + chat, () => {
-        console.log('join to chat');
+        let data = {
+            $set: {
+                "users.$.online": true,
+                "users.$.unread": 0
+            }
+        }
 
+        Chat.updateOne({ _id: chat, "users._id": user._id }, data).exec();
     })
 }
 
 function leaveChat(socket, user, chat) {
     socket.leave('chat ' + chat, () => {
-        console.log('leave to chat');
+        let data = {
+            $set: {
+                "users.$.online": false
+            }
+        }
 
+        Chat.updateOne({ _id: chat, "users._id": user._id }, data).exec();
     })
 }
 
