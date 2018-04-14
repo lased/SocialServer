@@ -11,6 +11,97 @@ const config = require('../../config');
 
 const uuid = require("uuid");
 
+module.exports.createChat = function (req, res, next) {
+    let data = req.decoded_token;
+    let _id = new mongoose.Types.ObjectId;
+    let dir = path.join(__dirname, "../../data/chats/" + _id);
+    let users = [data._id];
+
+    for (let prop in req.body.users) {
+        users.push(prop);
+    }
+
+    Chat.findOne({
+        users: {
+            $size: users.length
+        },
+        "users._id": {
+            $all: users
+        }
+    }).exec((err, chat) => {
+        if (err) return res.json(http(500));
+
+        if (!chat) {
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir);
+                fs.mkdirSync(dir + '/files');
+            }
+
+            let doc = {
+                _id,
+                messages: [],
+                name: req.body.name,
+                avatar: '/data/images/default-group-chat.png',
+                users: []
+            }
+
+            let creator;
+
+            async.forEach(users, (user, c) => {
+                User.findByIdAndUpdate(user, { $push: { chats: _id } }, (err, u) => {
+                    if (err) return c(err);
+
+                    let full = u.surname + ' ' + u.name;
+
+                    if (user == data._id) {
+                        creator = full;
+                        doc.users.push({
+                            _id: data._id,
+                            main: true,
+                            online: false,
+                            unread: 1
+                        });
+                        doc.messages.push({
+                            date: Date.now(),
+                            message: {
+                                text: creator + ' создал беседу',
+                                typeText: 'info'
+                            }
+                        });
+                    } else {
+                        doc.users.push({
+                            _id: u._id,
+                            main: false,
+                            online: false,
+                            unread: 1
+                        });
+                        doc.messages.push({
+                            date: Date.now(),
+                            message: {
+                                text: creator + ' пригласил ' + full,
+                                typeText: 'info'
+                            }
+                        });
+                    }
+                    c();
+                });
+            }, err => {
+                if (err) return res.json(http(500));
+
+                let newChat = new Chat(doc);
+
+                newChat.save((err, chat) => {
+                    if (err) return res.json(http(500));
+
+                    res.json(http(200, chat));
+                });
+            });
+        } else {
+            res.json(http(302, "Chat exists"));
+        }
+    })
+}
+
 module.exports.getMessages = function (req, res, next) {
     let id = req.decoded_token._id;
     let chat = req.query.chat;
@@ -42,6 +133,11 @@ module.exports.getChats = function (req, res, next) {
             select: {
                 messages: {
                     $slice: -1
+                }
+            },
+            options: {
+                sort: {
+                    "messages.date": -1
                 }
             },
             populate: {
@@ -214,7 +310,9 @@ module.exports.writeMessage = function (req, res, next) {
 
         async.waterfall([
             (c) => {
-                Chat.updateOne({ _id: to }, query).exec((err, chat) => {
+                Chat.updateOne({
+                    _id: to
+                }, query).exec((err, chat) => {
                     if (err) return c(err);
 
                     c(null);

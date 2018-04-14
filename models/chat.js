@@ -10,7 +10,8 @@ const schema = new Schema({
         date: Date,
         message: {
             reply: mongoose.Schema.Types.ObjectId,
-            text: String
+            text: String,
+            typeText: String           
         },
         files: [
             {
