@@ -11,6 +11,67 @@ const config = require('../../config');
 
 const uuid = require("uuid");
 
+module.exports.removeChatUser = function (req, res, next) {
+    let id = req.decoded_token._id;
+    let chat = req.query.chat;
+
+    async.waterfall([
+        c => {
+            User.findById(id, (err, user) => {
+                if (err) return c(err);
+
+                Chat.findByIdAndUpdate(chat, {
+                    $pull: {
+                        users: {
+                            _id: id
+                        }
+                    },
+                    $push: {
+                        messages: {
+                            date: Date.now(),
+                            message: {
+                                text: user.surname + user.name + ' покинул беседу',
+                                typeText: 'info'
+                            }
+                        }
+                    }
+                }, (err, doc) => {
+                    if (err) return c(err);
+
+                    if (doc.users.length == 1) {
+                        Chat.remove({ _id: chat }, (err) => {
+                            if (err) return c(err);
+
+                            
+                        })
+                    }
+
+                    c(null);
+                });
+            });
+        },
+        c => {
+            User.updateOne({ _id: id }, {
+                $pull: {
+                    chats: chat
+                }
+            }, (err, result) => {
+                if (err) return c(err);
+
+                c(null);
+            });
+        }
+    ], (err, result) => {
+        if (err) return res.json(http(500));
+
+        let io = req.app.get('io');
+
+        io.in('user ' + req.decoded_token.id).emit('deleteChat', chat);
+
+        res.json(http(200));
+    });
+}
+
 module.exports.createChat = function (req, res, next) {
     let data = req.decoded_token;
     let _id = new mongoose.Types.ObjectId;
@@ -69,6 +130,10 @@ module.exports.createChat = function (req, res, next) {
                             }
                         });
                     } else {
+                        if (users.length == 2) {
+                            doc.name = full;
+                            doc.avatar = u.avatar;
+                        }
                         doc.users.push({
                             _id: u._id,
                             main: false,
@@ -120,7 +185,6 @@ module.exports.getMessages = function (req, res, next) {
             }
             res.json(http(200, chat));
         });
-
 }
 
 module.exports.getChats = function (req, res, next) {
@@ -153,7 +217,7 @@ module.exports.getChats = function (req, res, next) {
             while (i < user.chats.length) {
                 let chat = user.chats[i];
 
-                if (chat.users.length == 2) {
+                if (chat.users.length <= 2) {
                     chat = addDataChat(chat, id);
                 }
 
@@ -402,7 +466,7 @@ function addDataChat(chat, userId) {
         return el['_id']['_id'] == userId;
     })
 
-    i = +!i;
+    i = chat.users.length == 1 ? 0 : +!i;
     chat.avatar = chat.users[i]._id.avatar;
     chat.name = chat.users[i]._id.surname + ' ' + chat.users[i]._id.name;
     chat.state = chat.users[i]._id.state;

@@ -15,6 +15,7 @@ const chat = require('./controllers/chat');
 
 router.get('/api/user/chat', access, chat.getMessages);
 router.post('/api/user/chat', access, chat.createChat);
+router.delete('/api/user/chat', access, chat.removeChatUser);
 
 router.get('/api/user/chats', access, chat.getChats);
 router.post('/api/user/chat/message', upload.array('uploadedFiles', 5), access, chat.writeMessage);
