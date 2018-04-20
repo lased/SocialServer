@@ -14,11 +14,20 @@ const uuid = require("uuid");
 module.exports.removeChatUser = function (req, res, next) {
     let id = req.decoded_token._id;
     let chat = req.query.chat;
+    let io = req.app.get('io');
 
     async.waterfall([
         c => {
             User.findById(id, (err, user) => {
                 if (err) return c(err);
+
+                let message = {
+                    date: Date.now(),
+                    message: {
+                        text: user.surname + user.name + ' покинул беседу',
+                        typeText: 'info'
+                    }
+                };
 
                 Chat.findByIdAndUpdate(chat, {
                     $pull: {
@@ -27,22 +36,29 @@ module.exports.removeChatUser = function (req, res, next) {
                         }
                     },
                     $push: {
-                        messages: {
-                            date: Date.now(),
-                            message: {
-                                text: user.surname + user.name + ' покинул беседу',
-                                typeText: 'info'
-                            }
-                        }
+                        messages: message
+
                     }
                 }, (err, doc) => {
                     if (err) return c(err);
 
-                    if (doc.users.length == 1) {
-                        Chat.remove({ _id: chat }, (err) => {
+                    io.to('chat ' + chat).emit('chat message', message);
+
+                    doc.users.forEach(el => {
+                        User.findById(el._id).exec((err, user) => {
                             if (err) return c(err);
 
-                            
+                            io.in('user ' + user.id).emit('chatsPageMessage', true);
+                        });
+                    })
+
+                    if (doc.users.length == 1) {
+                        Chat.remove({
+                            _id: chat
+                        }, (err) => {
+                            if (err) return c(err);
+
+                            deleteFolder(path.join(__dirname, "../../data/chats/" + chat + '/'));
                         })
                     }
 
@@ -51,7 +67,9 @@ module.exports.removeChatUser = function (req, res, next) {
             });
         },
         c => {
-            User.updateOne({ _id: id }, {
+            User.updateOne({
+                _id: id
+            }, {
                 $pull: {
                     chats: chat
                 }
@@ -63,8 +81,6 @@ module.exports.removeChatUser = function (req, res, next) {
         }
     ], (err, result) => {
         if (err) return res.json(http(500));
-
-        let io = req.app.get('io');
 
         io.in('user ' + req.decoded_token.id).emit('deleteChat', chat);
 
@@ -109,7 +125,11 @@ module.exports.createChat = function (req, res, next) {
             let creator;
 
             async.forEach(users, (user, c) => {
-                User.findByIdAndUpdate(user, { $push: { chats: _id } }, (err, u) => {
+                User.findByIdAndUpdate(user, {
+                    $push: {
+                        chats: doc._id
+                    }
+                }, (err, u) => {
                     if (err) return c(err);
 
                     let full = u.surname + ' ' + u.name;
@@ -148,6 +168,10 @@ module.exports.createChat = function (req, res, next) {
                             }
                         });
                     }
+
+                    let io = req.app.get('io');
+
+                    io.in('user ' + u.id).emit('createChat', doc._id);
                     c();
                 });
             }, err => {
@@ -158,7 +182,7 @@ module.exports.createChat = function (req, res, next) {
                 newChat.save((err, chat) => {
                     if (err) return res.json(http(500));
 
-                    res.json(http(200, chat));
+                    res.json(http(200));
                 });
             });
         } else {
@@ -221,6 +245,11 @@ module.exports.getChats = function (req, res, next) {
                     chat = addDataChat(chat, id);
                 }
 
+                let index = chat.users.findIndex(el => {
+                    return el._id._id == id;
+                });
+
+                user.chats[i].unread = chat.users[index]['unread'];
                 i++;
             }
             res.json(http(200, {
@@ -310,17 +339,17 @@ module.exports.writeMessage = function (req, res, next) {
                             })
                         }],
                         users: [{
-                            _id: from,
-                            main: true,
-                            online: false,
-                            unread: 0
-                        },
-                        {
-                            _id: to,
-                            main: false,
-                            online: false,
-                            unread: 1
-                        }
+                                _id: from,
+                                main: true,
+                                online: false,
+                                unread: 0
+                            },
+                            {
+                                _id: to,
+                                main: false,
+                                online: false,
+                                unread: 1
+                            }
                         ]
                     }
                     let newChat = new Chat(doc);
@@ -393,6 +422,15 @@ module.exports.writeMessage = function (req, res, next) {
                         if (err) return c(err);
 
                         io.to('chat ' + to).emit('chat message', chat.messages[0]);
+
+                        chat.users.forEach(el => {
+                            User.findById(el._id).exec((err, user) => {
+                                if (err) return c(err);
+
+                                io.in('user ' + user.id).emit('chatsPageMessage', true);
+                            });
+                        })
+
                         c(null);
                     });
             },
@@ -403,9 +441,9 @@ module.exports.writeMessage = function (req, res, next) {
                     }
                 };
                 Chat.updateOne({
-                    _id: to,
-                    "users.online": false
-                }, query)
+                        _id: to,
+                        "users.online": false
+                    }, query)
                     .exec((err, chat) => {
                         if (err) return c(err);
 
@@ -417,6 +455,20 @@ module.exports.writeMessage = function (req, res, next) {
 
             res.json(http(200));
         });
+    }
+}
+
+function deleteFolder(path) {
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach(function (file, index) {
+            var curPath = path + "/" + file;
+            if (fs.lstatSync(curPath).isDirectory()) {
+                deleteFolder(curPath);
+            } else {
+                fs.unlinkSync(curPath);
+            }
+        });
+        fs.rmdirSync(path);
     }
 }
 
