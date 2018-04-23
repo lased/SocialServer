@@ -12,6 +12,10 @@ const http = require('../http');
 const data = require('./controllers/data');
 const user = require('./controllers/user');
 const chat = require('./controllers/chat');
+const group = require('./controllers/group');
+
+router.get('/api/user/groups', access, group.getUserGroups);
+router.post('/api/group', access, group.createGroup);
 
 router.get('/api/user/chat', access, chat.getMessages);
 router.post('/api/user/chat', access, chat.createChat);
