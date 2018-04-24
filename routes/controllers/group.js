@@ -10,12 +10,108 @@ const http = require('../../http');
 
 const uuid = require("uuid");
 
+module.exports.deleteGroup = function (req, res, next) {
+}
+
+module.exports.joinGroup = function (req, res, next) {
+    let userId = req.decoded_token._id;
+    let groupId = req.body.id;
+
+    async.waterfall([
+        c => {
+            Group.findByIdAndUpdate(groupId, {
+                $push: {
+                    users: {
+                        user: userId,
+                        main: false
+                    }
+                }
+            }).exec((err, group) => {
+                if (err) return c(err);
+
+                c(null);
+            });
+        },
+        c => {
+            User.updateOne({ _id: userId }, {
+                $push: {
+                    groups: groupId
+                }
+            }).exec((err, result) => {
+                if (err) return c(err);
+
+                c(null);                
+            })
+        }
+    ], (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    });
+}
+
+module.exports.getGroup = function (req, res, next) {
+    let url = req.query.url;
+
+    Group.findOne({ url }).populate({
+        path: 'users.user',
+        select: 'avatar url name surname'
+    }).exec((err, group) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200, group));
+    });
+}
+
+module.exports.leaveGroup = function (req, res, next) {
+    let userId = req.decoded_token._id;
+    let groupId = req.query.id;
+
+    async.waterfall([
+        c => {
+            Group.updateOne({ _id: groupId }, {
+                $pull: {
+                    users: {
+                        user: userId
+                    }
+                }
+            }).exec((err, result) => {
+                if (err) return c(err);
+
+                c(null);
+            });
+        },
+        c => {
+            User.updateOne({ _id: userId }, {
+                $pull: {
+                    groups: groupId
+                }
+            }).exec((err, result) => {
+                if (err) return c(err);
+
+                c(null);                
+            })
+        }
+    ], (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    });
+}
+
 module.exports.getUserGroups = function (req, res, next) {
     let id = req.decoded_token._id;
 
-    User.findById(id).select('groups').populate('groups', 'avatar name url users').exec((err, user) => {
+    User.findById(id).select('groups').populate({
+        path: 'groups',
+        select: 'avatar name url users',
+        populate: {
+            path: 'users.user',
+            select: 'url'
+        }
+    }).exec((err, user) => {
         if (err) return res.json(http(500));
-        
+
         res.json(http(200, user.groups));
     })
 }

@@ -15,7 +15,12 @@ const chat = require('./controllers/chat');
 const group = require('./controllers/group');
 
 router.get('/api/user/groups', access, group.getUserGroups);
+router.delete('/api/user/groups', access, group.leaveGroup);
+router.put('/api/user/groups', access, group.joinGroup);
+
+router.get('/api/group', group.getGroup);
 router.post('/api/group', access, group.createGroup);
+router.delete('/api/group', access, group.deleteGroup);
 
 router.get('/api/user/chat', access, chat.getMessages);
 router.post('/api/user/chat', access, chat.createChat);
