@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const fs = require('fs');
 const path = require('path');
+const rimraf = require('rimraf');
 
 const User = require('../../models/user');
 const Group = require('../../models/group');
@@ -10,7 +11,90 @@ const http = require('../../http');
 
 const uuid = require("uuid");
 
+module.exports.updateDataGroup = function (req, res, next) {
+    let data = req.body.data;
+    let id = data.id;
+
+    delete data.id;
+
+    Group.findById(id).exec((err, group) => {
+        if (err) return res.json(http(500));
+
+        if (data.url.length == 0) {
+            data.url = 'id' + group.id;
+        }
+
+        Group.updateOne({ _id: id }, data, (err, result) => {
+            if (err) return res.json(http(500));
+
+            res.json(http(200, { name: data.name }));
+        });
+    });
+}
+
+module.exports.setAvatar = function (req, res, next) {
+    let id = req.body.id;
+    let image = req.file;
+    let tempPath = image.path;
+    let UUID = uuid();
+    let type = image.originalname.split('.');
+    let name = UUID + '.' + type[type.length - 1];
+    let targetPath = path.join(__dirname, "../../data/groups/" + id + "/images/") + name;
+    let avatar = "/data/groups/" + id + "/images/" + name;
+
+    fs.exists(targetPath, function (bool) {
+        let io = req.app.get('io');
+
+        if (bool) {
+            fs.unlink(tempPath, function (err) {
+                if (err) {
+                    return res.json(http(400));
+                }
+
+                res.json(http(302, 'Photo exists'));
+            })
+        } else {
+            fs.rename(tempPath, targetPath, function (err) {
+                if (err)
+                    res.json(http(400));
+                else {
+                    Group.findByIdAndUpdate(id, {
+                        avatar
+                    }, (err, group) => {
+                        if (err) return res.json(http(500));
+
+                        if (group.avatar != '/data/images/default-group-avatar.jpg')
+                            fs.unlinkSync(path.join(__dirname, "../.." + group.avatar));
+
+                        io.emit('group ' + group._id + ' avatar', avatar);
+                        res.json(http(200));
+                    });
+                }
+            });
+        }
+    });
+}
+
 module.exports.deleteGroup = function (req, res, next) {
+    let id = req.query.id;
+    let dir = path.join(__dirname, "../../data/groups/" + id);
+
+    Group.findByIdAndRemove(id, (err, group) => {
+        if (err) return res.json(http(500));
+
+        rimraf(dir, () => { });
+        group.users.forEach(el => {
+            User.updateOne({
+                _id: el.user
+            }, {
+                    $pull: {
+                        groups: group._id
+                    }
+                }).exec();
+        })
+
+        res.json(http(200));
+    });
 }
 
 module.exports.joinGroup = function (req, res, next) {
@@ -33,15 +117,17 @@ module.exports.joinGroup = function (req, res, next) {
             });
         },
         c => {
-            User.updateOne({ _id: userId }, {
-                $push: {
-                    groups: groupId
-                }
-            }).exec((err, result) => {
-                if (err) return c(err);
+            User.updateOne({
+                _id: userId
+            }, {
+                    $push: {
+                        groups: groupId
+                    }
+                }).exec((err, result) => {
+                    if (err) return c(err);
 
-                c(null);                
-            })
+                    c(null);
+                })
         }
     ], (err, result) => {
         if (err) return res.json(http(500));
@@ -53,7 +139,9 @@ module.exports.joinGroup = function (req, res, next) {
 module.exports.getGroup = function (req, res, next) {
     let url = req.query.url;
 
-    Group.findOne({ url }).populate({
+    Group.findOne({
+        url
+    }).populate({
         path: 'users.user',
         select: 'avatar url name surname'
     }).exec((err, group) => {
@@ -69,28 +157,32 @@ module.exports.leaveGroup = function (req, res, next) {
 
     async.waterfall([
         c => {
-            Group.updateOne({ _id: groupId }, {
-                $pull: {
-                    users: {
-                        user: userId
+            Group.updateOne({
+                _id: groupId
+            }, {
+                    $pull: {
+                        users: {
+                            user: userId
+                        }
                     }
-                }
-            }).exec((err, result) => {
-                if (err) return c(err);
+                }).exec((err, result) => {
+                    if (err) return c(err);
 
-                c(null);
-            });
+                    c(null);
+                });
         },
         c => {
-            User.updateOne({ _id: userId }, {
-                $pull: {
-                    groups: groupId
-                }
-            }).exec((err, result) => {
-                if (err) return c(err);
+            User.updateOne({
+                _id: userId
+            }, {
+                    $pull: {
+                        groups: groupId
+                    }
+                }).exec((err, result) => {
+                    if (err) return c(err);
 
-                c(null);                
-            })
+                    c(null);
+                })
         }
     ], (err, result) => {
         if (err) return res.json(http(500));
@@ -125,15 +217,17 @@ module.exports.createGroup = function (req, res, next) {
         _id,
         name,
         dateCreated: Date.now(),
-        users: [
-            {
-                user: id,
-                main: true
-            }
-        ]
+        users: [{
+            user: id,
+            main: true
+        }]
     }
 
-    Group.count({ _id: { $ne: null } }).exec((err, count) => {
+    Group.count({
+        _id: {
+            $ne: null
+        }
+    }).exec((err, count) => {
         if (err) return res.json(http(500));
 
         if (!count) {
@@ -152,9 +246,15 @@ module.exports.createGroup = function (req, res, next) {
 
         let newGroup = new Group(doc);
 
-        User.updateOne({ _id: id }, { $push: { groups: _id } }).exec((err, result) => {
-            if (err) return res.json(http(500));
-        })
+        User.updateOne({
+            _id: id
+        }, {
+                $push: {
+                    groups: _id
+                }
+            }).exec((err, result) => {
+                if (err) return res.json(http(500));
+            })
 
         newGroup.save();
         res.json(http(200));

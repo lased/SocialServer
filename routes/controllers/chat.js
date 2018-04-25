@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const fs = require('fs');
 const path = require('path');
+const rimraf = require('rimraf');
 
 const User = require('../../models/user');
 const Chat = require('../../models/chat');
@@ -58,7 +59,7 @@ module.exports.removeChatUser = function (req, res, next) {
                         }, (err) => {
                             if (err) return c(err);
 
-                            deleteFolder(path.join(__dirname, "../../data/chats/" + chat + '/'));
+                            rimraf(path.join(__dirname, "../../data/chats/" + chat), () => {});
                         })
                     }
 
@@ -455,20 +456,6 @@ module.exports.writeMessage = function (req, res, next) {
 
             res.json(http(200));
         });
-    }
-}
-
-function deleteFolder(path) {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach(function (file, index) {
-            var curPath = path + "/" + file;
-            if (fs.lstatSync(curPath).isDirectory()) {
-                deleteFolder(curPath);
-            } else {
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
     }
 }
 

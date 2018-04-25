@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const router = express.Router();
 
-var multer  = require('multer')
+var multer = require('multer')
 var upload = multer({ dest: path.join(__dirname, '../data/uploads/') })
 
 const jwt = require('jsonwebtoken');
@@ -21,6 +21,8 @@ router.put('/api/user/groups', access, group.joinGroup);
 router.get('/api/group', group.getGroup);
 router.post('/api/group', access, group.createGroup);
 router.delete('/api/group', access, group.deleteGroup);
+router.put('/api/group/data', access, group.updateDataGroup);
+router.post('/api/group/avatar', upload.single('image'), access, group.setAvatar);
 
 router.get('/api/user/chat', access, chat.getMessages);
 router.post('/api/user/chat', access, chat.createChat);
@@ -63,10 +65,10 @@ router.get('/data/*', data.get);
 module.exports = router;
 
 function access(req, res, next) {
-    let token = req.query.token || req.body.token;     
+    let token = req.query.token || req.body.token;
 
-    jwt.verify(token, config.get('secret'), function (err, decode) {        
-        if (err) return res.json(http(400));   
+    jwt.verify(token, config.get('secret'), function (err, decode) {
+        if (err) return res.json(http(400));
 
         req.decoded_token = decode;
         next();
