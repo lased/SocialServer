@@ -14,6 +14,10 @@ const user = require('./controllers/user');
 const chat = require('./controllers/chat');
 const group = require('./controllers/group');
 
+router.post('/api/group/shedule/pairs', access, group.addPairs);
+
+router.post('/api/group/shedule', access, group.addShedule);
+
 router.get('/api/user/groups', access, group.getUserGroups);
 router.delete('/api/user/groups', access, group.leaveGroup);
 router.put('/api/user/groups', access, group.joinGroup);
@@ -21,6 +25,7 @@ router.put('/api/user/groups', access, group.joinGroup);
 router.get('/api/group', group.getGroup);
 router.post('/api/group', access, group.createGroup);
 router.delete('/api/group', access, group.deleteGroup);
+
 router.put('/api/group/data', access, group.updateDataGroup);
 router.post('/api/group/avatar', upload.single('image'), access, group.setAvatar);
 

@@ -8,6 +8,7 @@ const schema = new Schema({
         unique: true
     },
     name: String,
+    description: String,
     url: {
         type: String,
         index: true,
@@ -30,7 +31,21 @@ const schema = new Schema({
             },
             main: Boolean
         }
-    ]
+    ],
+    shedule: {
+        pairs: {
+            type: Array,
+            default: []
+        },
+        lowerWeek: {
+            type: Array,
+            default: []
+        },
+        topWeek: {
+            type: Array,
+            default: []
+        }
+    }
 }, {
         versionKey: false
     });

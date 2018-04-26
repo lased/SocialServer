@@ -11,6 +11,29 @@ const http = require('../../http');
 
 const uuid = require("uuid");
 
+module.exports.addShedule = function (req, res, next) { 
+    let lowerWeek = req.body.shedule.lowerWeek;
+    let topWeek = req.body.shedule.topWeek;
+    let groupId = req.body.groupId;
+
+    Group.updateOne({ _id: groupId }, { "shedule.lowerWeek": lowerWeek, "shedule.topWeek": topWeek }, (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    })
+}
+
+module.exports.addPairs = function (req, res, next) {
+    let pairs = req.body.pairs;
+    let groupId = req.body.groupId;
+
+    Group.updateOne({ _id: groupId }, { "shedule.pairs": pairs }, (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    })
+}
+
 module.exports.updateDataGroup = function (req, res, next) {
     let data = req.body.data;
     let id = data.id;
@@ -210,12 +233,14 @@ module.exports.getUserGroups = function (req, res, next) {
 
 module.exports.createGroup = function (req, res, next) {
     let name = req.body.name;
+    let description = req.body.description;
     let id = req.decoded_token._id;
     let _id = new mongoose.Types.ObjectId;
     let dir = path.join(__dirname, "../../data/groups/" + _id);
     let doc = {
         _id,
         name,
+        description,
         dateCreated: Date.now(),
         users: [{
             user: id,
