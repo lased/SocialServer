@@ -11,7 +11,24 @@ const http = require('../../http');
 
 const uuid = require("uuid");
 
-module.exports.addShedule = function (req, res, next) { 
+module.exports.importShedule = function (req, res, next) {
+    let lowerWeek = req.body.shedule.lowerWeek || [];
+    let topWeek = req.body.shedule.topWeek || [];
+    let pairs = req.body.shedule.pairs || [];
+    let groupId = req.body.groupId;
+    
+    Group.updateOne({ _id: groupId }, {
+        "shedule.lowerWeek": lowerWeek,
+        "shedule.topWeek": topWeek,
+        "shedule.pairs": pairs
+    }, (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    })
+}
+
+module.exports.addShedule = function (req, res, next) {
     let lowerWeek = req.body.shedule.lowerWeek;
     let topWeek = req.body.shedule.topWeek;
     let groupId = req.body.groupId;

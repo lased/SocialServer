@@ -17,6 +17,7 @@ const group = require('./controllers/group');
 router.post('/api/group/shedule/pairs', access, group.addPairs);
 
 router.post('/api/group/shedule', access, group.addShedule);
+router.put('/api/group/shedule', access, group.importShedule);
 
 router.get('/api/user/groups', access, group.getUserGroups);
 router.delete('/api/user/groups', access, group.leaveGroup);
