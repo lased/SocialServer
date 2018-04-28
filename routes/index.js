@@ -19,6 +19,9 @@ router.post('/api/group/shedule/pairs', access, group.addPairs);
 router.post('/api/group/shedule', access, group.addShedule);
 router.put('/api/group/shedule', access, group.importShedule);
 
+router.post('/api/group/event', access, group.addEvent);
+router.delete('/api/group/event', access, group.removeEvent);
+
 router.get('/api/user/groups', access, group.getUserGroups);
 router.delete('/api/user/groups', access, group.leaveGroup);
 router.put('/api/user/groups', access, group.joinGroup);

@@ -45,6 +45,16 @@ const schema = new Schema({
             type: Array,
             default: []
         }
+    },
+    events: {
+        type: [{
+            _id: false,
+            title: String,
+            startTime: Date,
+            endTime: Date,
+            allDay: Boolean
+        }],
+        default: []
     }
 }, {
         versionKey: false

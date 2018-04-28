@@ -11,12 +11,38 @@ const http = require('../../http');
 
 const uuid = require("uuid");
 
+module.exports.addEvent = function (req, res, next) {
+    let event = req.body.event;
+    let groupId = req.body.id;
+
+    Group.updateOne({ _id: groupId }, { $push: { events: event } }, (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    })
+}
+
+module.exports.removeEvent = function (req, res, next) {
+    let event = JSON.parse(req.query.event);
+    let groupId = req.query.id;
+
+    Group.updateOne({ _id: groupId }, {
+        $pull: {
+            events: event
+        }
+    }, (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200));
+    })
+}
+
 module.exports.importShedule = function (req, res, next) {
     let lowerWeek = req.body.shedule.lowerWeek || [];
     let topWeek = req.body.shedule.topWeek || [];
     let pairs = req.body.shedule.pairs || [];
     let groupId = req.body.groupId;
-    
+
     Group.updateOne({ _id: groupId }, {
         "shedule.lowerWeek": lowerWeek,
         "shedule.topWeek": topWeek,
