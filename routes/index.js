@@ -26,6 +26,9 @@ router.get('/api/user/groups', access, group.getUserGroups);
 router.delete('/api/user/groups', access, group.leaveGroup);
 router.put('/api/user/groups', access, group.joinGroup);
 
+router.post('/api/group/post', upload.array('uploadedFiles', 5), access, group.addPost);
+router.delete('/api/group/post', access, group.deletePost);
+
 router.get('/api/group', group.getGroup);
 router.post('/api/group', access, group.createGroup);
 router.delete('/api/group', access, group.deleteGroup);

@@ -55,7 +55,17 @@ const schema = new Schema({
             allDay: Boolean
         }],
         default: []
-    }
+    },
+    posts: [{
+        date: Date,
+        post: String,
+        files: [
+            {
+                date: Date,
+                file: String
+            }
+        ]
+    }]
 }, {
         versionKey: false
     });

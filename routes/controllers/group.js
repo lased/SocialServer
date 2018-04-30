@@ -11,6 +11,30 @@ const http = require('../../http');
 
 const uuid = require("uuid");
 
+module.exports.addPost = function (req, res, next) {
+    let groupId = req.body.id;
+    let post = req.body.post;
+    let downloaded = req.body.downloadedFiles ? JSON.parse(req.body.downloadedFiles) : [];
+    let files = req.files;
+    let doc = {
+        date: new Date(),
+        post,
+        files: uploadFiles(groupId, {
+            downloaded,
+            upload: files
+        })
+    }
+
+    Group.updateOne({ _id: groupId }, {$push: {posts: doc}}, (err, result) => {
+        if (err) return res.json(http(500));
+
+        res.json(http(200, doc));        
+    });    
+}
+
+module.exports.deletePost = function (req, res, next) {
+}
+
 module.exports.addEvent = function (req, res, next) {
     let event = req.body.event;
     let groupId = req.body.id;
@@ -105,8 +129,8 @@ module.exports.setAvatar = function (req, res, next) {
     let UUID = uuid();
     let type = image.originalname.split('.');
     let name = UUID + '.' + type[type.length - 1];
-    let targetPath = path.join(__dirname, "../../data/groups/" + id + "/images/") + name;
-    let avatar = "/data/groups/" + id + "/images/" + name;
+    let targetPath = path.join(__dirname, "../../data/groups/" + id + "/files/") + name;
+    let avatar = "/data/groups/" + id + "/files/" + name;
 
     fs.exists(targetPath, function (bool) {
         let io = req.app.get('io');
@@ -288,7 +312,8 @@ module.exports.createGroup = function (req, res, next) {
         users: [{
             user: id,
             main: true
-        }]
+        }],
+        posts: []
     }
 
     Group.count({
@@ -308,8 +333,7 @@ module.exports.createGroup = function (req, res, next) {
 
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir);
-            fs.mkdirSync(dir + '/images');
-            fs.mkdirSync(dir + '/docs');
+            fs.mkdirSync(dir + '/files');
         }
 
         let newGroup = new Group(doc);
@@ -327,4 +351,46 @@ module.exports.createGroup = function (req, res, next) {
         newGroup.save();
         res.json(http(200));
     })
+}
+
+
+function uploadFiles(groupId, files) {
+    let imagePath = path.join(__dirname, "../../data/groups/" + groupId + "/files/")
+    let downloaded = files.downloaded;
+    let upload = files.upload;
+
+    let allFiles = [];
+
+    for (let i = 0; i < upload.length; i++) {
+        let tempPath = upload[i].path;
+        let type = upload[i].originalname.split('.');
+        let UUID = uuid();
+        let targetPath = imagePath + UUID + '.' + type[type.length - 1];
+
+        allFiles.push({
+            date: Date.now(),
+            file: "/data/groups/" + groupId + "/files/" + UUID + '.' + type[type.length - 1]
+        })
+
+        fs.exists(targetPath, function (bool) {
+            if (bool) {
+                fs.unlink(tempPath, function (err) {
+                    if (err) return res.json(http(400));
+                })
+            } else {
+                fs.rename(tempPath, targetPath, function (err) {
+                    if (err) return res.json(http(400));
+                });
+            }
+        });
+    }
+
+    for (let i = 0; i < downloaded.length; i++) {
+        allFiles.push({
+            date: Date.now(),
+            file: downloaded[i].file.name
+        });
+    }
+
+    return allFiles;
 }

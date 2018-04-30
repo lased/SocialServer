@@ -197,11 +197,6 @@ module.exports.getMessages = function (req, res, next) {
     let chat = req.query.chat;
 
     Chat.findById(chat).populate('messages.from users._id', 'name surname avatar url')
-        // .select({
-        //     "messages": {
-        //         $slice: -20
-        //     }
-        // })
         .exec((err, chat) => {
             if (err) return res.json(http(500));
 
