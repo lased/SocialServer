@@ -25,11 +25,11 @@ module.exports.addPost = function (req, res, next) {
         })
     }
 
-    Group.updateOne({ _id: groupId }, {$push: {posts: doc}}, (err, result) => {
+    Group.updateOne({ _id: groupId }, { $push: { posts: doc } }, (err, result) => {
         if (err) return res.json(http(500));
 
-        res.json(http(200, doc));        
-    });    
+        res.json(http(200, doc));
+    });
 }
 
 module.exports.deletePost = function (req, res, next) {
@@ -231,14 +231,29 @@ module.exports.getGroup = function (req, res, next) {
 
     Group.findOne({
         url
-    }).populate({
-        path: 'users.user',
-        select: 'avatar url name surname'
-    }).exec((err, group) => {
-        if (err) return res.json(http(500));
+    })
+        .populate({
+            path: 'users.user',
+            select: 'avatar url name surname'
+        })
+        .exec((err, group) => {
+            if (err) return res.json(http(500));
 
-        res.json(http(200, group));
-    });
+            group.posts.sort((prev, cur) => {
+                if(cur.files.length > 0){
+                    cur.files.sort((prev, cur) => {
+                        if(/\.(jpg|jpeg|png|gif)$/.test(cur.file)){
+                            return 1;
+                        }
+                        return 0;
+                    })
+                }
+                
+                return +cur.date - +prev.date;
+            })
+
+            res.json(http(200, group));
+        });
 }
 
 module.exports.leaveGroup = function (req, res, next) {
