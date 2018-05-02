@@ -33,6 +33,19 @@ module.exports.addPost = function (req, res, next) {
 }
 
 module.exports.deletePost = function (req, res, next) {
+    let groupId = req.query.id;
+    let post = JSON.parse(req.query.post);
+
+    Group.updateOne({ _id: groupId }, { $pull: { posts: { _id: post._id } } }, (err, result) => {
+        if (err) return res.json(http(500));
+
+        post.files.forEach(item => {
+            if (fs.existsSync(path.join(__dirname, '../../' + item.file)))
+                fs.unlinkSync(path.join(__dirname, '../../' + item.file));
+        })
+
+        res.json(http(200));
+    })
 }
 
 module.exports.addEvent = function (req, res, next) {
@@ -239,18 +252,19 @@ module.exports.getGroup = function (req, res, next) {
         .exec((err, group) => {
             if (err) return res.json(http(500));
 
-            group.posts.sort((prev, cur) => {
-                if(cur.files.length > 0){
-                    cur.files.sort((prev, cur) => {
-                        if(/\.(jpg|jpeg|png|gif)$/.test(cur.file)){
-                            return 1;
-                        }
-                        return 0;
-                    })
-                }
-                
-                return +cur.date - +prev.date;
-            })
+            if (group)
+                group.posts.sort((prev, cur) => {
+                    if (cur.files.length > 0) {
+                        cur.files.sort((prev, cur) => {
+                            if (/\.(jpg|jpeg|png|gif)$/.test(cur.file)) {
+                                return 1;
+                            }
+                            return 0;
+                        })
+                    }
+
+                    return +cur.date - +prev.date;
+                })
 
             res.json(http(200, group));
         });

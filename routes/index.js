@@ -52,6 +52,8 @@ router.put('/api/user/friend', access, user.confirmAddFriend);
 
 router.get('/api/user', user.get);
 
+router.get('/api/user/news', access, user.getNews);
+
 router.post('/api/user/login', user.login);
 router.post('/api/user/forget', user.forget);
 router.post('/api/user/registration', user.registration);

@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const async = require('async');
 const uuid = require("uuid");
+const mongoose = require("mongoose");
 
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +14,41 @@ const config = require('../../config');
 
 let settings = require('./settings.json').settings;
 
+module.exports.getNews = function (req, res, next) {
+    let id = mongoose.Types.ObjectId(req.decoded_token._id);
+
+    User.findById(id)
+        .populate({
+            path: 'groups',
+            select: 'url name posts avatar'
+        })
+        .select('groups')
+        .exec((err, user) => {
+            if (err) return res.json(http(500));
+
+            let posts = [];
+
+            user.groups.forEach(group => {
+                group.posts.forEach(post => {
+                    let p = {
+                        date: post.date,
+                        post: post.post,
+                        files: post.files,
+                        avatar: group.avatar,
+                        url: group.url,
+                        name: group.name
+                    }
+
+                    posts.push(p);
+                });
+            });
+            posts.sort((prev, cur) => {
+                return +cur.date - +prev.date;
+            });
+            res.json(http(200, posts));
+        })
+}
+
 module.exports.getFiles = function (req, res, next) {
     let t = req.query.type;
     let data = req.decoded_token;
@@ -22,7 +58,10 @@ module.exports.getFiles = function (req, res, next) {
     User.findById(data._id, (err, user) => {
         if (err) return res.json(http(500));
 
-        res.json(http(200, { path: filePath, files: user[t] }));
+        res.json(http(200, {
+            path: filePath,
+            files: user[t]
+        }));
     });
 }
 
@@ -37,14 +76,20 @@ module.exports.confirmAddFriend = function (req, res, next) {
 
     async.waterfall([
         function (callback) {
-            User.updateOne({ _id: idUser, "friends._id": idNewUser }, data, (err, user) => {
+            User.updateOne({
+                _id: idUser,
+                "friends._id": idNewUser
+            }, data, (err, user) => {
                 if (err) return callback(err);
 
                 callback(null);
             });
         },
         function (callback) {
-            User.updateOne({ _id: idNewUser, "friends._id": idUser }, data, (err, user) => {
+            User.updateOne({
+                _id: idNewUser,
+                "friends._id": idUser
+            }, data, (err, user) => {
                 if (err) return callback(err);
 
                 callback(null);
@@ -145,7 +190,9 @@ module.exports.get = function (req, res, next) {
     let fields;
 
     fields = '_id id name surname avatar phone birthday status about city country sex state lastAccess platform';
-    User.findOne({ url }).select(fields).exec(function (err, user) {
+    User.findOne({
+        url
+    }).select(fields).exec(function (err, user) {
         if (err) return res.json(http(500));
 
         if (user) {
@@ -162,13 +209,13 @@ module.exports.deletePhoto = function (req, res, next) {
     let data = req.decoded_token;
     let image = JSON.parse(req.query.image);
     let pathPhoto = path.join(__dirname, "../.." + image.name);
-    let io = req.app.get('io');   
-    
+    let io = req.app.get('io');
+
     User.findById(data._id, function (err, user) {
         if (err) return res.json(http(500));
 
         fs.unlink(pathPhoto, function (err) {
-            if (err) return res.json(http(500));            
+            if (err) return res.json(http(500));
 
             User.findByIdAndUpdate(data._id, {
                 $pull: {
@@ -177,14 +224,16 @@ module.exports.deletePhoto = function (req, res, next) {
                     }
                 }
             }, (err, user) => {
-                if (err) return res.json(http(500));                
+                if (err) return res.json(http(500));
             });
         })
 
         if (image.name == user.avatar) {
             let newAvatar = '/data/images/default-avatar.jpg';
 
-            User.findByIdAndUpdate(data._id, { avatar: newAvatar }, function (err, user) {
+            User.findByIdAndUpdate(data._id, {
+                avatar: newAvatar
+            }, function (err, user) {
                 if (err) return res.json(http(500));
 
                 io.to('user ' + data.id).emit('setAvatar', config.get('urlApi') + newAvatar);
@@ -202,7 +251,9 @@ module.exports.photoAvatar = function (req, res, next) {
     let avatar = image.name;
     let io = req.app.get('io');
 
-    User.findByIdAndUpdate(data._id, { avatar }, function (err, user) {
+    User.findByIdAndUpdate(data._id, {
+        avatar
+    }, function (err, user) {
         if (err) return res.json(http(500));
 
         io.to('user ' + data.id).emit('setAvatar', config.get('urlApi') + avatar);
@@ -219,7 +270,7 @@ module.exports.addPhotos = function (req, res, next) {
         let type = images[i].originalname.split('.');
         let UUID = uuid();
         let targetPath = path.join(__dirname, "../../data/users/" + data.id + "/images/") + UUID + '.' + type[type.length - 1];
-        
+
         fs.exists(targetPath, function (bool) {
             if (bool) {
                 fs.unlink(tempPath, function (err) {
@@ -232,7 +283,7 @@ module.exports.addPhotos = function (req, res, next) {
                     User.findByIdAndUpdate(data._id, {
                         $push: {
                             "images": {
-                                name: "/data/users/" + + data.id + "/images/" + UUID + '.' + type[type.length - 1],
+                                name: "/data/users/" + +data.id + "/images/" + UUID + '.' + type[type.length - 1],
                                 date: Date.now()
                             }
                         }
@@ -253,7 +304,10 @@ module.exports.getPhotos = function (req, res, next) {
     User.findById(data._id, (err, user) => {
         if (err) return res.json(http(500));
 
-        res.json(http(200, { path: photoPath, photos: user.images }));
+        res.json(http(200, {
+            path: photoPath,
+            photos: user.images
+        }));
     });
 }
 
@@ -284,7 +338,15 @@ module.exports.setAvatar = function (req, res, next) {
                 if (err)
                     res.json(http(400));
                 else
-                    User.findByIdAndUpdate(data._id, { avatar: newAvatar, $push: { "images": { name: newAvatar, date: Date.now() } } }, function (err, user) {
+                    User.findByIdAndUpdate(data._id, {
+                        avatar: newAvatar,
+                        $push: {
+                            "images": {
+                                name: newAvatar,
+                                date: Date.now()
+                            }
+                        }
+                    }, function (err, user) {
                         if (err) return res.json(http(500));
 
                         io.in('user ' + data.id).emit('setAvatar', avatar);
@@ -333,17 +395,24 @@ module.exports.setSettings = function (req, res, next) {
             console.log(data.name !== undefined && data.surname !== undefined);
 
             if (data.name && data.surname) {
-                io.to('user ' + userData.id).emit('updateInitials', { name: data.name, surname: data.surname });
+                io.to('user ' + userData.id).emit('updateInitials', {
+                    name: data.name,
+                    surname: data.surname
+                });
             }
 
             if (data.email !== undefined && data.email !== user.email) {
                 let newEmail = data.email;
 
-                User.findOne({ email: data.email }, function (err, mail) {
+                User.findOne({
+                    email: data.email
+                }, function (err, mail) {
                     if (err) return res.json(http(500));
 
                     if (mail) {
-                        res.json(http(302, { name: 'email' }));
+                        res.json(http(302, {
+                            name: 'email'
+                        }));
                     } else {
                         sendMail('change email', {
                             _id: user._id,
@@ -362,15 +431,23 @@ module.exports.setSettings = function (req, res, next) {
 
             } else if (data.url !== undefined && data.url !== user.url) {
                 if (/^id[0-9]+$/.test(data.url)) {
-                    res.json(http(302, { name: 'url' }));
+                    res.json(http(302, {
+                        name: 'url'
+                    }));
                 } else {
-                    io.to('user ' + userData.id).emit('updateUrl', { url: data.url == '' ? 'id' + userData.id : data.url });
+                    io.to('user ' + userData.id).emit('updateUrl', {
+                        url: data.url == '' ? 'id' + userData.id : data.url
+                    });
 
-                    User.findOne({ url: data.url }, function (err, u) {
+                    User.findOne({
+                        url: data.url
+                    }, function (err, u) {
                         if (err) return res.json(http(500));
 
                         if (u) {
-                            res.json(http(302, { name: 'url' }));
+                            res.json(http(302, {
+                                name: 'url'
+                            }));
                         } else {
                             data.url = data.url == '' ? 'id' + userData.id : data.url;
                             User.findByIdAndUpdate(user._id, data, function (err, user) {
@@ -491,7 +568,10 @@ module.exports.login = function (req, res, next) {
             } else {
                 if (user.activated) {
                     let data = selectedField(user),
-                        token = jwt.sign({ _id: data._id, id: data.id }, config.get('secret'));
+                        token = jwt.sign({
+                            _id: data._id,
+                            id: data.id
+                        }, config.get('secret'));
 
                     data.token = token;
                     delete data._id;
