@@ -203,6 +203,7 @@ module.exports.deleteGroup = function (req, res, next) {
 module.exports.joinGroup = function (req, res, next) {
     let userId = req.decoded_token._id;
     let groupId = req.body.id;
+    let io = req.app.get('io');
 
     async.waterfall([
         c => {
@@ -235,6 +236,7 @@ module.exports.joinGroup = function (req, res, next) {
     ], (err, result) => {
         if (err) return res.json(http(500));
 
+        io.in('user ' + req.decoded_token.id).emit('joinGroup');
         res.json(http(200));
     });
 }

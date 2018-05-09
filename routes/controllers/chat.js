@@ -140,8 +140,8 @@ module.exports.createChat = function (req, res, next) {
                         doc.users.push({
                             _id: data._id,
                             main: true,
-                            online: false,
-                            unread: 1
+                            online: true,
+                            unread: 0
                         });
                         doc.messages.push({
                             date: Date.now(),
@@ -361,13 +361,17 @@ module.exports.writeMessage = function (req, res, next) {
                             (callback) => {
                                 User.findByIdAndUpdate(from, query, (err, user) => {
                                     if (err) return callback(err);
-                                    callback(null)
+
+                                    io.in('user ' + user.id).emit('createChat', chat._id);
+                                    callback(null);
                                 });
                             },
                             (callback) => {
                                 User.findByIdAndUpdate(to, query, (err, user) => {
                                     if (err) return callback(err);
-                                    callback(null)
+
+                                    io.in('user ' + user.id).emit('createChat', chat._id);
+                                    callback(null);
                                 })
                             }
                         ], (err, result) => {
