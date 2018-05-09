@@ -51,19 +51,6 @@ const schema = new Schema({
             input: Boolean
         }
     ],
-    notifications: [
-        {
-            text: {
-                type: String
-            },
-            status: {
-                type: Boolean
-            },
-            page: {
-                type: String
-            }
-        }
-    ],
     chats: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'chats'
@@ -71,10 +58,6 @@ const schema = new Schema({
     groups: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'groups'
-    }],
-    wall: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'walls'
     }],
     sex: Boolean,
     country: String,

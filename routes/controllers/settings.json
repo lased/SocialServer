@@ -57,10 +57,6 @@
                     "type": "date"
                 }
             ]
-        },
-        {
-            "tab": "theme",
-            "parametrs": []
         }
     ]
 }

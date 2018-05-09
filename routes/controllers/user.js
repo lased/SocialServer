@@ -189,10 +189,20 @@ module.exports.get = function (req, res, next) {
     let url = req.query.url;
     let fields;
 
-    fields = '_id id name surname avatar phone birthday status about city country sex state lastAccess platform';
+    fields = '_id id groups friends._id name surname avatar phone birthday status about city country sex state lastAccess platform';
     User.findOne({
         url
-    }).select(fields).exec(function (err, user) {
+    })
+    .select(fields)
+    .populate({
+        path: 'groups',
+        select: 'name url avatar -_id'
+    })
+    .populate({
+        path: 'friends._id',
+        select: 'name url avatar -_id'
+    })
+    .exec(function (err, user) {
         if (err) return res.json(http(500));
 
         if (user) {
